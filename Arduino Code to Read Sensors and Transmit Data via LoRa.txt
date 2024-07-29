@@ -1,0 +1,68 @@
+#include <SPI.h>
+#include <LoRa.h>
+#include <DHT.h>
+#include <LiquidCrystal.h>
+
+#define DHTPIN 2
+#define DHTTYPE DHT11
+#define LDRPIN A0
+#define MQ2PIN A1
+#define VOLTAGEPIN A2
+#define CURRENTPIN A3
+#define RELAYPIN 7
+
+DHT dht(DHTPIN, DHTTYPE);
+LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+
+void setup() {
+  Serial.begin(9600);
+  while (!Serial);
+  Serial.println("LoRa Sender");
+  
+  if (!LoRa.begin(915E6)) {
+    Serial.println("Starting LoRa failed!");
+    while (1);
+  }
+
+  dht.begin();
+  lcd.begin(16, 2);
+  pinMode(RELAYPIN, OUTPUT);
+}
+
+void loop() {
+  int ldrValue = analogRead(LDRPIN);
+  float humidity = dht.readHumidity();
+  float temperature = dht.readTemperature();
+  int smokeValue = analogRead(MQ2PIN);
+  float voltage = analogRead(VOLTAGEPIN) * (5.0 / 1023.0); // Example conversion
+  float current = analogRead(CURRENTPIN) * (5.0 / 1023.0); // Example conversion
+
+  if (ldrValue < 500) { // Assuming a threshold value
+    digitalWrite(RELAYPIN, HIGH); // Turn on light
+  } else {
+    digitalWrite(RELAYPIN, LOW); // Turn off light
+  }
+
+  // Display data on LCD
+  lcd.setCursor(0, 0);
+  lcd.print("Temp: "); lcd.print(temperature); lcd.print("C");
+  lcd.setCursor(0, 1);
+  lcd.print("Hum: "); lcd.print(humidity); lcd.print("%");
+
+  // Send data over LoRa
+  LoRa.beginPacket();
+  LoRa.print(ldrValue);
+  LoRa.print(",");
+  LoRa.print(temperature);
+  LoRa.print(",");
+  LoRa.print(humidity);
+  LoRa.print(",");
+  LoRa.print(smokeValue);
+  LoRa.print(",");
+  LoRa.print(voltage);
+  LoRa.print(",");
+  LoRa.print(current);
+  LoRa.endPacket();
+
+  delay(2000); // Delay between readings
+}
